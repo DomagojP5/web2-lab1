@@ -1,0 +1,12 @@
+# Ignore node_modules folder
+node_modules
+
+# Ignore files related to API keys
+.env
+
+# Ignore all text files
+*.txt
+
+#Ignore server key and cert
+server.cert
+server.key
