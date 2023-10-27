@@ -7,7 +7,8 @@ html
         ul 
             li: a(href='/', title='Home') Home
             li: a(href='/private') Private content 
-            li: a(href='/competition') Competition            
+            li: a(href='/competition') Competition  
+            li: a(href='/generateCompetition') Generate competition          
             if username
                 li: form(action="/logout", method="get")
                     input(type="submit", value="Logout " + username)

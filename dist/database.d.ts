@@ -1,2 +1,2 @@
-declare const client: any;
-export default client;
+declare const pool: any;
+export default pool;

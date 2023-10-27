@@ -1,0 +1,11 @@
+html 
+    head 
+        title OAuth2/OpenID login demo
+    body
+        h1 Edit Competition
+        ul 
+            li: a(href='/', title='Home') Home
+
+        h2 Competition: #{comp[0].name} 
+        each team in teams 
+            h4 Team: #{team.name}

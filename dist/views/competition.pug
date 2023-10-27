@@ -9,25 +9,31 @@ html
 
         .grid-container
         div
-        table 
-            tr
-                td Teams: 
-                td win/lose/draw
-            tr
-                td Team A 
-                td 
-                    span 2/
-                    span 0/
-                    span 1
-            tr
-                td Team B 
-                td 0/2/1
-            tr
-                td Team C
-                td 1/1/1
-            tr
-                td Team D 
-                td 0/1/2
+
+        each comp in comps
+            h2 #{comp.name}
+            table 
+                tr
+                    td Teams: 
+                    td Wins 
+                    if comp.comptype == 1 
+                        td Draws
+                    td Losess
+                each team in teams
+                    if team.id === comp.id
+                        tr
+                            td #{team.name}
+                            td #{team.win}
+                            
+                            if comp.comptype === 1 
+                                td #{team.draw}
+                            td #{team.lose}
+            if comp.email==email
+                form( action=`/editCompetition/id=${comp.id}` method="POST")
+                    button(type="submit") Edit 
+            else 
+                button(disabled) Edit 
+                            
 
         
             
