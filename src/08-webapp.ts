@@ -79,8 +79,9 @@ app.get ("/competition", async (req, res) => {
     //console.log(comps)
     pool.query(`SELECT * FROM competitor`, function (error, result, client){
       var teams = result.rows;
-      //console.log(result2)
+      //console.log(result.rows)
       //console.log("2: " + user)
+      //console.log("printing teams: " + teams)
       res.render('competition', {comps:comps, teams:teams, user, email});
     });
     
@@ -144,15 +145,15 @@ app.post('/generateCompetition', urlencodedParser,  (req, res) => {
     if(req.body.competitionType == 1) {
       //console.log(`INSERT INTO competitor (id, name, win, draw, lose) VALUES (SELECT id FROM competition WHERE name='${req.body.name}', '${competitor}', 0, 0, 0)`)
       pool.query(`
-        INSERT INTO competitor (id, name, win, draw, lose)
-        SELECT id, '${competitor}', 0, 0, 0 
+        INSERT INTO competitor (id, name, win, draw, lose, points)
+        SELECT id, '${competitor}', 0, 0, 0, 0
         FROM competition 
         WHERE name='${req.body.name}'`)
     } else if (req.body.competitionType == 2) {
       //console.log(`INSERT INTO competitor (id, name, win, lose) VALUES (SELECT id FROM competition WHERE name='${req.body.name}', '${competitor}', 0, 0)`)  
       pool.query(`
-        INSERT INTO competitor (id, name, win, lose)
-        SELECT id, '${competitor}', 0, 0 
+        INSERT INTO competitor (id, name, win, lose, points)
+        SELECT id, '${competitor}', 0, 0, 0
         FROM competition 
         WHERE name='${req.body.name}'`)    
     }

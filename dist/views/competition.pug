@@ -19,6 +19,8 @@ html
                     if comp.comptype == 1 
                         td Draws
                     td Losess
+                    td Points
+                - teams.sort(function (a,b) {return (a.points < b.points) ? 1 :  ((a.points > b.points) ? -1 : 0) })
                 each team in teams
                     if team.id === comp.id
                         tr
@@ -28,6 +30,10 @@ html
                             if comp.comptype === 1 
                                 td #{team.draw}
                             td #{team.lose}
+                            if 3*team.win+team.draw
+                                td #{3*team.win+team.draw}
+                            else 
+                                td 0
             if comp.email==email
                 form( action=`/editCompetition/id=${comp.id}` method="POST")
                     button(type="submit") Edit 

@@ -110,8 +110,32 @@ app.get("/competition", function (req, res) { return __awaiter(void 0, void 0, v
             //console.log(comps)
             database_1.default.query("SELECT * FROM competitor", function (error, result, client) {
                 var teams = result.rows;
-                //console.log(result2)
+                //console.log(result.rows)
                 //console.log("2: " + user)
+                //console.log("printing teams: " + teams)
+                /*
+                for (var i = 0; i < comps.length; i++) {
+                  console.log(comps[i])
+                  console.log("id: " + comps[i].id)
+                  pool.query(`SELECT * FROM competitor WHERE id =${comps[i].id}`, function (error, result, client) {
+                    var newTeams = result.rows;
+                    console.log("prije: " + JSON.stringify(newTeams))
+                    console.log()
+                    newTeams.sort( function (a,b) {
+                      console.log("usporedba" + JSON.stringify(a) + " i " + JSON.stringify(b) + " :" + `${a.points > b.points}`)
+                      return a.points > b.points;
+                    })
+                    console.log("poslije" + JSON.stringify(newTeams))
+                  })
+                }
+                console.log("prije: " + JSON.stringify(teams))
+                console.log()
+                teams.sort( function (a,b) {
+                  console.log("usporedba" + JSON.stringify(a) + " i " + JSON.stringify(b) + " :" + `${3*a.win+a.draw > 3*b.win+b.draw}`)
+                  return 3*a.win+a.draw > 3*b.win+b.draw;
+                })
+                console.log("poslije" + JSON.stringify(teams))
+                */
                 res.render('competition', { comps: comps, teams: teams, user: user, email: email });
             });
         });
@@ -164,11 +188,11 @@ app.post('/generateCompetition', urlencodedParser, function (req, res) {
         var competitor = _b[_i];
         if (req.body.competitionType == 1) {
             //console.log(`INSERT INTO competitor (id, name, win, draw, lose) VALUES (SELECT id FROM competition WHERE name='${req.body.name}', '${competitor}', 0, 0, 0)`)
-            database_1.default.query("\n        INSERT INTO competitor (id, name, win, draw, lose)\n        SELECT id, '".concat(competitor, "', 0, 0, 0 \n        FROM competition \n        WHERE name='").concat(req.body.name, "'"));
+            database_1.default.query("\n        INSERT INTO competitor (id, name, win, draw, lose, points)\n        SELECT id, '".concat(competitor, "', 0, 0, 0, 0\n        FROM competition \n        WHERE name='").concat(req.body.name, "'"));
         }
         else if (req.body.competitionType == 2) {
             //console.log(`INSERT INTO competitor (id, name, win, lose) VALUES (SELECT id FROM competition WHERE name='${req.body.name}', '${competitor}', 0, 0)`)  
-            database_1.default.query("\n        INSERT INTO competitor (id, name, win, lose)\n        SELECT id, '".concat(competitor, "', 0, 0 \n        FROM competition \n        WHERE name='").concat(req.body.name, "'"));
+            database_1.default.query("\n        INSERT INTO competitor (id, name, win, lose, points)\n        SELECT id, '".concat(competitor, "', 0, 0, 0\n        FROM competition \n        WHERE name='").concat(req.body.name, "'"));
         }
         //console.log(competitor)
     }
