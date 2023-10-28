@@ -3,7 +3,7 @@
     "build": "npm run clean && tsc && npm run copy-views && npm run copy-views",
     "clean": "if exist dist rmdir /s /q dist",
     "copy-views": "robocopy /mir /NFL /NDL /NJH /NJS /nc /ns /np src/views/ dist/views & exit 0",
-    "start": "node dist/08-webapp.js",
+    "start": "node dist/app.js",
     "go": "npm run clean && tsc && npm run copy-views & npm run start"
   },
   "dependencies": {

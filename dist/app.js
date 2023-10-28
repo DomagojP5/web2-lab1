@@ -60,10 +60,7 @@ var config = {
     secret: process.env.SECRET,
     baseURL: "https://localhost:".concat(port),
     clientID: process.env.CLIENT_ID,
-    //issuerBaseURL: 'https://localhost:'.concat("3000", "/"),
-    //issuerBaseURL: 'https://fer-web2.eu.auth0.com',
-    issuerBaseURL: 'https://fer-web2-labos.eu.auth0.com',
-    //issuerBaseURL: process.env.ISSUER_BASE_URL,
+    issuerBaseURL: process.env.ISSUER_BASE_URL,
     clientSecret: process.env.CLIENT_SECRET,
     authorizationParams: {
         response_type: 'code',
@@ -113,29 +110,6 @@ app.get("/competition", function (req, res) { return __awaiter(void 0, void 0, v
                 //console.log(result.rows)
                 //console.log("2: " + user)
                 //console.log("printing teams: " + teams)
-                /*
-                for (var i = 0; i < comps.length; i++) {
-                  console.log(comps[i])
-                  console.log("id: " + comps[i].id)
-                  pool.query(`SELECT * FROM competitor WHERE id =${comps[i].id}`, function (error, result, client) {
-                    var newTeams = result.rows;
-                    console.log("prije: " + JSON.stringify(newTeams))
-                    console.log()
-                    newTeams.sort( function (a,b) {
-                      console.log("usporedba" + JSON.stringify(a) + " i " + JSON.stringify(b) + " :" + `${a.points > b.points}`)
-                      return a.points > b.points;
-                    })
-                    console.log("poslije" + JSON.stringify(newTeams))
-                  })
-                }
-                console.log("prije: " + JSON.stringify(teams))
-                console.log()
-                teams.sort( function (a,b) {
-                  console.log("usporedba" + JSON.stringify(a) + " i " + JSON.stringify(b) + " :" + `${3*a.win+a.draw > 3*b.win+b.draw}`)
-                  return 3*a.win+a.draw > 3*b.win+b.draw;
-                })
-                console.log("poslije" + JSON.stringify(teams))
-                */
                 res.render('competition', { comps: comps, teams: teams, user: user, email: email });
             });
         });
@@ -155,7 +129,7 @@ app.post("/editCompetition/id=:tagId", function (req, res) {
         database_1.default.query("SELECT * FROM competitor WHERE id=".concat(id), function (error, result, client) {
             var teams = result.rows;
             var length = Object.keys(teams).length;
-            console.log("teams: " + length);
+            //console.log("teams: " + length)
             var mapping = {
                 4: roundRobin_1.fourPlayerMap,
                 5: roundRobin_1.fivePlayerMap,
@@ -164,7 +138,7 @@ app.post("/editCompetition/id=:tagId", function (req, res) {
                 8: roundRobin_1.eightPlayerMap
             };
             var map = mapping[length];
-            res.render('editCompetition', { comp: comp, teams: teams, user: user });
+            res.render('editCompetition', { comp: comp, teams: teams, user: user, map: map });
         });
     });
 });
@@ -178,10 +152,6 @@ app.post('/generateCompetition', urlencodedParser, function (req, res) {
     //const {name, competitors, competitionType} = req.body  
     //console.log(name, competitors, competitionType)
     console.log(req.body);
-    //console.log(req.body.name)
-    //console.log(req.body.competitors)
-    //console.log(req.body.competitionType)
-    //console.log(req.oidc.user?.email)
     //console.log(`INSERT INTO competition (name, email, compType) VALUES ('${req.body.name}', '${req.oidc.user?.email}', ${req.body.competitionType})`)
     database_1.default.query("INSERT INTO competition (name, email, compType) VALUES ('".concat(req.body.name, "', '").concat((_a = req.oidc.user) === null || _a === void 0 ? void 0 : _a.email, "', ").concat(req.body.competitionType, ")"));
     for (var _i = 0, _b = req.body.competitors.split(","); _i < _b.length; _i++) {
@@ -198,26 +168,4 @@ app.post('/generateCompetition', urlencodedParser, function (req, res) {
     }
     res.redirect('/competition');
 });
-/*
-pool
-  .query(`BEGIN`)
-  .then((res) => {
-    pool.query(
-      `INSERT INTO competition (id, name, email) VALUES (1, 'comp1', 'domagoj.penava5@gmail.com')`
-    )
-  })
-  .then((res) => {
-    pool.query(
-      `INSERT INTO competitor (id, competitorId, name, win, draw, lose) VALUES (1, 2, 'team2', 0, 0, 1)`
-    )
-  })
-  .then((res) => {
-    pool.query(`COMMIT`)
-  })
-  .catch((err) => {
-    pool.query(`ROLLBACK`)
-  })
-
-*/
-//db pool end
 database_1.default.end;

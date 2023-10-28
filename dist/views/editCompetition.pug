@@ -5,7 +5,15 @@ html
         h1 Edit Competition
         ul 
             li: a(href='/', title='Home') Home
+            li: a(href='/competition', title='Competition') Competition
 
         h2 Competition: #{comp[0].name} 
+        each [key, value] of map
+            h4 Round #{key}
+            each [team1, team2] of value 
+                if team1 == 'bye' || team2 == 'bye'
+                    div Round skipped
+                else 
+                    div Team #{team1} vs Team #{team2}
         each team in teams 
             h4 Team: #{team.name}
