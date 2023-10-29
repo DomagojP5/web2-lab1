@@ -88,8 +88,8 @@ app.get ("/generateCompetition", (req, res) => {
   res.render('generateCompetition', {user}); 
 });
 
-app.post ("/editCompetition/id=:tagId", (req, res) => {
-  const user = JSON.stringify(req.oidc.user); 
+app.all ("/editCompetition/id=:tagId", (req, res) => {
+  const user = (req.oidc.user); 
   //console.log(req.params.tagId)
   const id = req.params.tagId
 
@@ -97,32 +97,17 @@ app.post ("/editCompetition/id=:tagId", (req, res) => {
     var comp = result.rows;
     pool.query(`SELECT * FROM competitor WHERE id=${id}`, function (error, result, client){
       var teams = result.rows;
-      const length = Object.keys(teams).length;
-      //console.log("teams: " + length)
-
-      const mapping = {
-        4:fourPlayerMap,
-        5:fivePlayerMap,
-        6:sixPlayerMap,
-        7:sevenPlayerMap,
-        8:eightPlayerMap
-      }
-
-      let teamDict = {};
-      for(let i = 0; i < teams.length; i++) {
-        teamDict[i+1] = teams[i].name
-      }
-      const map = mapping[length]
-      //console.log(comp)
-      //console.log(teams)
-      res.render('editCompetition', {comp, teams, user, map, teamDict});
+      pool.query(`SELECT * FROM matches WHERE id=${id}`, function(error, result, client) {
+        var matches = result.rows;
+        //console.log(matches)
+        res.render('editCompetition', {comp, teams, user, matches});
+      })
+      
     });
     
   });
   
 });
-
-
 
 var bodyParser = require('body-parser')
 //json parser
@@ -135,21 +120,23 @@ app.post('/generateCompetition', urlencodedParser,  (req, res) => {
   //console.log(name, competitors, competitionType)
   //console.log(req.body)
   
-  console.log(`INSERT INTO competition (name, email, compType) VALUES ('${req.body.name}', '${req.oidc.user?.email}', ${req.body.competitionType})`)
+  //console.log(`INSERT INTO competition (name, email, compType) VALUES ('${req.body.name}', '${req.oidc.user?.email}', ${req.body.competitionType})`)
   pool.query(`INSERT INTO competition (name, email, compType) VALUES ('${req.body.name}', '${req.oidc.user?.email}', ${req.body.competitionType})`)
   
   let teamDict = {};
   let i = 1;
+  //console.log(req.body.competitors)
+  //console.log(req.body.competitors.split(","))
   for(var competitor of req.body.competitors.split(",")) {
     if(req.body.competitionType == 1) {
-      console.log(`INSERT INTO competitor (id, name, win, draw, lose, points) SELECT id, '${competitor}', 0, 0, 0, 0 FROM competition  WHERE name='${req.body.name}'`)
+      //console.log(`INSERT INTO competitor (id, name, win, draw, lose, points) SELECT id, '${competitor}', 0, 0, 0, 0 FROM competition  WHERE name='${req.body.name}'`)
       pool.query(`
         INSERT INTO competitor (id, name, win, draw, lose, points)
         SELECT id, '${competitor}', 0, 0, 0, 0
         FROM competition 
         WHERE name='${req.body.name}'`)
     } else if (req.body.competitionType == 2) {
-      console.log(`INSERT INTO competitor (id, name, win, lose, points) SELECT id, '${competitor}', 0, 0, 0FROM competition WHERE name='${req.body.name}'`) 
+      //console.log(`INSERT INTO competitor (id, name, win, lose, points) SELECT id, '${competitor}', 0, 0, 0FROM competition WHERE name='${req.body.name}'`) 
       
       pool.query(`
         INSERT INTO competitor (id, name, win, lose, points)
@@ -178,19 +165,108 @@ app.post('/generateCompetition', urlencodedParser,  (req, res) => {
       for (const [teamId1, teamName1] of Object.entries(teamDict)) {
         for (const [teamId2, teamName2] of Object.entries(teamDict)) {
           if((matchId1 != 'bye' && matchId2 != 'bye') && (teamId1 == matchId1 && teamId2 == matchId2)) {
-            console.log(`INSERT INTO Matches (id, team1, team2, result) SELECT id, '${teamName1}', '${teamName2}'  FROM competition  WHERE name='${req.body.name}', 0`)
-            pool.query(`INSERT INTO Matches (id, team1, team2, result) SELECT id, '${teamName1}', '${teamName2}'  FROM competition  WHERE name='${req.body.name}', 0`)
+            //console.log(`INSERT INTO Matches (id, team1, team2, result) SELECT id, '${teamName1}', '${teamName2}', 0  FROM competition  WHERE name='${req.body.name}'`)
+            pool.query(`INSERT INTO Matches (id, team1, team2, result) SELECT id, '${teamName1}', '${teamName2}', 0  FROM competition  WHERE name='${req.body.name}'`)
         }
       }
     }
   }});
-  res.redirect('/competition')
+  setTimeout(() => {
+    res.redirect('/competition')
+  }, 100)
 })
 
 app.post('/updateMatches', urlencodedParser, (req, res) => {
-  console.log(req.body)
-  console.log(req.body.result)
-  res.redirect('/competition')
+  const [compId, matchid, team1, team2, result, compType] = req.body.result.split(";")
+  //console.log(compId, matchid, team1, team2, result)
+  pool.query(`SELECT result FROM Matches WHERE matchId=${matchid}` , function(error, result1, client) {
+    const prevResult = result1.rows[0].result
+    //console.log("prevMatchId, prevResult : " + matchid + ", " + prevResult + " => matchId, result : " + matchid + ", " + result)
+    //console.log("matchid: " + matchid + ", result: " + result)
+    //promijeniti u competitor tablici: win, draw, lose
+    
+    //console.log(`UPDATE Matches SET result=${result} WHERE matchId=${matchid}`)
+    if(compType == 1) {
+      if (prevResult == 0) {
+        if(result == 1) {
+          //console.log(`UPDATE Competitor SET win=win+1 WHERE id=${compId} AND name='${team1}'`)
+          pool.query(`UPDATE Competitor SET win=win+1, points=points+3 WHERE id=${compId} AND name='${team1}'`)
+          pool.query(`UPDATE Competitor SET lose=lose+1 WHERE id=${compId} AND name='${team2}'`)
+        } else if (result == 2) {
+          pool.query(`UPDATE Competitor SET draw=draw+1, points=points+1 WHERE id=${compId} AND name='${team1}'`)
+          pool.query(`UPDATE Competitor SET draw=draw+1, points=points+1 WHERE id=${compId} AND name='${team2}'`)
+        } else if (result == 3) {
+          pool.query(`UPDATE Competitor SET lose=lose+1 WHERE id=${compId} AND name='${team1}'`)
+          pool.query(`UPDATE Competitor SET win=win+1, points=points+3 WHERE id=${compId} AND name='${team2}'`)
+        }
+      } else if (prevResult == 1) {
+        if(result == 0) {
+          pool.query(`UPDATE Competitor SET win=win-1, points=points-3 WHERE id=${compId} AND name='${team1}'`)
+          pool.query(`UPDATE Competitor SET lose=lose-1 WHERE id=${compId} AND name='${team2}'`)
+        } else if (result == 2) {
+          pool.query(`UPDATE Competitor SET draw=draw+1, win=win-1, points=points-2 WHERE id=${compId} AND name='${team1}'`)
+          pool.query(`UPDATE Competitor SET draw=draw+1, lose=lose-1, points=points+1 WHERE id=${compId} AND name='${team2}'`)
+        } else if (result == 3) {
+          pool.query(`UPDATE Competitor SET lose=lose+1, win=win-1, points=points-3 WHERE id=${compId} AND name='${team1}'`)
+          pool.query(`UPDATE Competitor SET win=win+1, lose=lose-1, points=points+3 WHERE id=${compId} AND name='${team2}'`)
+        }
+      } else if (prevResult == 2) {
+        if(result == 0) {
+          pool.query(`UPDATE Competitor SET draw=draw-1, points=points-1 WHERE id=${compId} AND name='${team1}'`)
+          pool.query(`UPDATE Competitor SET draw=draw-1, points=points-1 WHERE id=${compId} AND name='${team2}'`)
+        } else if (result == 1) {
+          pool.query(`UPDATE Competitor SET draw=draw-1, win=win+1, points=points+2 WHERE id=${compId} AND name='${team1}'`)
+          pool.query(`UPDATE Competitor SET draw=draw-1, lose=lose+1, points=points-1 WHERE id=${compId} AND name='${team2}'`)
+        } else if (result == 3) {
+          pool.query(`UPDATE Competitor SET draw=draw-1, lose=lose+1, points=points-1 WHERE id=${compId} AND name='${team1}'`)
+          pool.query(`UPDATE Competitor SET draw=draw-1, win=win+1, points=points+2 WHERE win=win+1 id=${compId} AND name='${team2}'`)
+        }
+      } else if (prevResult == 3) {
+        if(result == 0) {
+          pool.query(`UPDATE Competitor SET lose=lose-1 WHERE id=${compId} AND name='${team1}'`)
+          pool.query(`UPDATE Competitor SET win=win-1, points=points-3 WHERE id=${compId} AND name='${team2}'`)
+        } else if (result == 1) {
+          pool.query(`UPDATE Competitor SET lose=lose-1, win=win+1, points=points+3 WHERE id=${compId} AND name='${team1}'`)
+          pool.query(`UPDATE Competitor SET win=win-1, lose=lose+1, points=points-3 WHERE id=${compId} AND name='${team2}'`)
+        } else if (result == 2) {
+          pool.query(`UPDATE Competitor SET lose=lose-1, draw=draw+1, points=points+1 WHERE id=${compId} AND name='${team1}'`)
+          pool.query(`UPDATE Competitor SET win=win-1, draw=draw+1, points=points-2 WHERE id=${compId} AND name='${team2}'`)
+        }
+      } 
+    } else if (compType == 2) {
+      if (prevResult == 0) {
+        if(result == 1) {
+          pool.query(`UPDATE Competitor SET win=win+1, points=points+2 WHERE id=${compId} AND name='${team1}'`)
+          pool.query(`UPDATE Competitor SET lose=lose+1, points=points+1 WHERE id=${compId} AND name='${team2}'`)
+        } else if (result == 3) {
+          pool.query(`UPDATE Competitor SET lose=lose+1, points=points+1 WHERE id=${compId} AND name='${team1}'`)
+          pool.query(`UPDATE Competitor SET win=win+1, points=points+2 WHERE id=${compId} AND name='${team2}'`)
+        }
+      } else if (prevResult == 1) {
+        if(result == 0) {
+          pool.query(`UPDATE Competitor SET win=win-1, points=points-2 WHERE id=${compId} AND name='${team1}'`)
+          pool.query(`UPDATE Competitor SET lose=lose-1, points=points-1 WHERE id=${compId} AND name='${team2}'`)
+        } else if (result == 3) {
+          pool.query(`UPDATE Competitor SET lose=lose+1, win=win-1, points=points-1 WHERE id=${compId} AND name='${team1}'`)
+          pool.query(`UPDATE Competitor SET win=win+1, lose=lose-1, points=points+1 WHERE id=${compId} AND name='${team2}'`)
+        }
+      } else if (prevResult == 3) {
+        if(result == 0) {
+          pool.query(`UPDATE Competitor SET lose=lose-1, points=points-1 WHERE id=${compId} AND name='${team1}'`)
+          pool.query(`UPDATE Competitor SET win=win-1, points=points-2 WHERE id=${compId} AND name='${team2}'`)
+        } else if (result == 1) {
+          pool.query(`UPDATE Competitor SET lose=lose-1, win=win+1, points=points+1 WHERE id=${compId} AND name='${team1}'`)
+          pool.query(`UPDATE Competitor SET win=win-1, lose=lose+1, points=points-1 WHERE id=${compId} AND name='${team2}'`)
+        }
+      } 
+    }
+    pool.query(`UPDATE Matches SET result=${result} WHERE matchId=${matchid}`, function (error, result, client) {
+      res.redirect('back');
+    })
+  })
+
+
+
 })
 
 
