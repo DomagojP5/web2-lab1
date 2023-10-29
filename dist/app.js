@@ -45,20 +45,17 @@ var path_1 = __importDefault(require("path"));
 var https_1 = __importDefault(require("https"));
 var express_openid_connect_1 = require("express-openid-connect");
 var dotenv_1 = __importDefault(require("dotenv"));
+var pg_1 = require("pg");
 var roundRobin_1 = require("./roundRobin");
-var database_1 = __importDefault(require("./database"));
-database_1.default.connect();
+var externalUrl = process.env.RENDER_EXTERNAL_URL;
+var port = externalUrl && process.env.PORT ? parseInt(process.env.PORT) : 3000;
 dotenv_1.default.config();
-var app = (0, express_1.default)();
-app.set("views", path_1.default.join(__dirname, "views"));
-app.set('view engine', 'pug');
-app.use(express_1.default.static('public'));
-var port = 3000;
 var config = {
     authRequired: false,
     idpLogout: true,
     secret: process.env.SECRET,
-    baseURL: "https://localhost:".concat(port),
+    //baseURL: `https://localhost:${port}`,
+    baseURL: externalUrl || "https://localhost:".concat(port),
     clientID: process.env.CLIENT_ID,
     issuerBaseURL: process.env.ISSUER_BASE_URL,
     clientSecret: process.env.CLIENT_SECRET,
@@ -67,8 +64,35 @@ var config = {
         //scope: "openid profile email"   
     },
 };
-// auth router attaches /login, /logout, and /callback routes to the baseURL
+var pool = new pg_1.Pool({
+    user: process.env.DB_USER,
+    host: process.env.DB_HOST,
+    database: 'web2_lab1db',
+    password: process.env.DB_PASSWORD,
+    port: 5432,
+    ssl: true
+});
+pool.connect();
+var app = (0, express_1.default)();
+app.set("views", path_1.default.join(__dirname, "views"));
+app.set('view engine', 'pug');
+app.use(express_1.default.static('public'));
 app.use((0, express_openid_connect_1.auth)(config));
+if (externalUrl) {
+    var hostname_1 = '0.0.0.0'; //ne 127.0.0.1
+    app.listen(port, hostname_1, function () {
+        console.log("Server locally running at http://".concat(hostname_1, ":").concat(port, "/ and from outside on ").concat(externalUrl));
+    });
+}
+else {
+    https_1.default.createServer({
+        key: fs_1.default.readFileSync('server.key'),
+        cert: fs_1.default.readFileSync('server.cert')
+    }, app)
+        .listen(port, function () {
+        console.log("Server running at https://localhost:".concat(port, "/"));
+    });
+}
 app.get('/', function (req, res) {
     var _a, _b, _c;
     var username;
@@ -85,27 +109,16 @@ app.get("/sign-up", function (req, res) {
         },
     });
 });
-https_1.default.createServer({
-    key: fs_1.default.readFileSync('server.key'),
-    cert: fs_1.default.readFileSync('server.cert')
-}, app)
-    .listen(port, function () {
-    console.log("Server running at https://localhost:".concat(port, "/"));
-});
 app.get("/competition", function (req, res) { return __awaiter(void 0, void 0, void 0, function () {
     var user, email;
     var _a;
     return __generator(this, function (_b) {
         user = JSON.stringify(req.oidc.user);
         email = (_a = req.oidc.user) === null || _a === void 0 ? void 0 : _a.email;
-        database_1.default.query("SELECT * FROM competition", function (error, result, client) {
+        pool.query("SELECT * FROM competition", function (error, result, client) {
             var comps = result.rows;
-            //console.log(comps)
-            database_1.default.query("SELECT * FROM competitor", function (error, result, client) {
+            pool.query("SELECT * FROM competitor", function (error, result, client) {
                 var teams = result.rows;
-                //console.log(result.rows)
-                //console.log("2: " + user)
-                //console.log("printing teams: " + teams)
                 res.render('competition', { comps: comps, teams: teams, user: user, email: email });
             });
         });
@@ -114,49 +127,44 @@ app.get("/competition", function (req, res) { return __awaiter(void 0, void 0, v
 }); });
 app.get("/generateCompetition", function (req, res) {
     var user = JSON.stringify(req.oidc.user);
-    res.render('generateCompetition', { user: user });
+    if (!req.oidc.isAuthenticated()) {
+        res.redirect("/");
+    }
+    else {
+        res.render("generateCompetition");
+    }
 });
 app.all("/editCompetition/id=:tagId", function (req, res) {
+    if (!req.oidc.isAuthenticated()) {
+        res.redirect("/");
+    }
     var user = (req.oidc.user);
-    //console.log(req.params.tagId)
     var id = req.params.tagId;
-    database_1.default.query("SELECT * FROM competition WHERE id=".concat(id), function (error, result, client) {
+    pool.query("SELECT * FROM competition WHERE id=".concat(id), function (error, result, client) {
         var comp = result.rows;
-        database_1.default.query("SELECT * FROM competitor WHERE id=".concat(id), function (error, result, client) {
+        pool.query("SELECT * FROM competitor WHERE id=".concat(id), function (error, result, client) {
             var teams = result.rows;
-            database_1.default.query("SELECT * FROM matches WHERE id=".concat(id), function (error, result, client) {
+            pool.query("SELECT * FROM matches WHERE id=".concat(id), function (error, result, client) {
                 var matches = result.rows;
-                //console.log(matches)
                 res.render('editCompetition', { comp: comp, teams: teams, user: user, matches: matches });
             });
         });
     });
 });
 var bodyParser = require('body-parser');
-//json parser
-var jsonParser = bodyParser.json();
-//url parser
 var urlencodedParser = bodyParser.urlencoded({ extended: false });
 app.post('/generateCompetition', urlencodedParser, function (req, res) {
-    //const {name, competitors, competitionType} = req.body  
-    //console.log(name, competitors, competitionType)
-    //console.log(req.body)
     var _a;
-    //console.log(`INSERT INTO competition (name, email, compType) VALUES ('${req.body.name}', '${req.oidc.user?.email}', ${req.body.competitionType})`)
-    database_1.default.query("INSERT INTO competition (name, email, compType) VALUES ('".concat(req.body.name, "', '").concat((_a = req.oidc.user) === null || _a === void 0 ? void 0 : _a.email, "', ").concat(req.body.competitionType, ")"));
+    pool.query("\n    INSERT INTO competition (name, email, compType) \n    VALUES ('".concat(req.body.name, "', '").concat((_a = req.oidc.user) === null || _a === void 0 ? void 0 : _a.email, "', ").concat(req.body.competitionType, ")"));
     var teamDict = {};
     var i = 1;
-    //console.log(req.body.competitors)
-    //console.log(req.body.competitors.split(","))
     for (var _i = 0, _b = req.body.competitors.split(","); _i < _b.length; _i++) {
         var competitor = _b[_i];
         if (req.body.competitionType == 1) {
-            //console.log(`INSERT INTO competitor (id, name, win, draw, lose, points) SELECT id, '${competitor}', 0, 0, 0, 0 FROM competition  WHERE name='${req.body.name}'`)
-            database_1.default.query("\n        INSERT INTO competitor (id, name, win, draw, lose, points)\n        SELECT id, '".concat(competitor, "', 0, 0, 0, 0\n        FROM competition \n        WHERE name='").concat(req.body.name, "'"));
+            pool.query("\n        INSERT INTO competitor (id, name, win, draw, lose, points)\n        SELECT id, '".concat(competitor, "', 0, 0, 0, 0\n        FROM competition \n        WHERE name='").concat(req.body.name, "'"));
         }
         else if (req.body.competitionType == 2) {
-            //console.log(`INSERT INTO competitor (id, name, win, lose, points) SELECT id, '${competitor}', 0, 0, 0FROM competition WHERE name='${req.body.name}'`) 
-            database_1.default.query("\n        INSERT INTO competitor (id, name, win, lose, points)\n        SELECT id, '".concat(competitor, "', 0, 0, 0\n        FROM competition \n        WHERE name='").concat(req.body.name, "'"));
+            pool.query("\n        INSERT INTO competitor (id, name, win, lose, points)\n        SELECT id, '".concat(competitor, "', 0, 0, 0\n        FROM competition \n        WHERE name='").concat(req.body.name, "'"));
         }
         teamDict[i] = competitor;
         i++;
@@ -170,19 +178,15 @@ app.post('/generateCompetition', urlencodedParser, function (req, res) {
     };
     var length = Object.keys(teamDict).length;
     var matchMap = mapping[length];
-    //console.log("map size: " + matchMap.size)
-    //console.log(mapping[length]);
     matchMap.forEach(function (matches) {
         for (var _i = 0, matches_1 = matches; _i < matches_1.length; _i++) {
             var _a = matches_1[_i], matchId1 = _a[0], matchId2 = _a[1];
-            //console.log(matchId1, matchId2)
             for (var _b = 0, _c = Object.entries(teamDict); _b < _c.length; _b++) {
                 var _d = _c[_b], teamId1 = _d[0], teamName1 = _d[1];
                 for (var _e = 0, _f = Object.entries(teamDict); _e < _f.length; _e++) {
                     var _g = _f[_e], teamId2 = _g[0], teamName2 = _g[1];
                     if ((matchId1 != 'bye' && matchId2 != 'bye') && (teamId1 == matchId1 && teamId2 == matchId2)) {
-                        //console.log(`INSERT INTO Matches (id, team1, team2, result) SELECT id, '${teamName1}', '${teamName2}', 0  FROM competition  WHERE name='${req.body.name}'`)
-                        database_1.default.query("INSERT INTO Matches (id, team1, team2, result) SELECT id, '".concat(teamName1, "', '").concat(teamName2, "', 0  FROM competition  WHERE name='").concat(req.body.name, "'"));
+                        pool.query("\n              INSERT INTO Matches (id, team1, team2, result) \n              SELECT id, '".concat(teamName1, "', '").concat(teamName2, "', 0  \n              FROM competition  \n              WHERE name='").concat(req.body.name, "'"));
                     }
                 }
             }
@@ -194,107 +198,101 @@ app.post('/generateCompetition', urlencodedParser, function (req, res) {
 });
 app.post('/updateMatches', urlencodedParser, function (req, res) {
     var _a = req.body.result.split(";"), compId = _a[0], matchid = _a[1], team1 = _a[2], team2 = _a[3], result = _a[4], compType = _a[5];
-    //console.log(compId, matchid, team1, team2, result)
-    database_1.default.query("SELECT result FROM Matches WHERE matchId=".concat(matchid), function (error, result1, client) {
+    pool.query("SELECT result FROM Matches WHERE matchId=".concat(matchid), function (error, result1, client) {
         var prevResult = result1.rows[0].result;
-        //console.log("prevMatchId, prevResult : " + matchid + ", " + prevResult + " => matchId, result : " + matchid + ", " + result)
-        //console.log("matchid: " + matchid + ", result: " + result)
-        //promijeniti u competitor tablici: win, draw, lose
-        //console.log(`UPDATE Matches SET result=${result} WHERE matchId=${matchid}`)
         if (compType == 1) {
             if (prevResult == 0) {
                 if (result == 1) {
-                    //console.log(`UPDATE Competitor SET win=win+1 WHERE id=${compId} AND name='${team1}'`)
-                    database_1.default.query("UPDATE Competitor SET win=win+1, points=points+3 WHERE id=".concat(compId, " AND name='").concat(team1, "'"));
-                    database_1.default.query("UPDATE Competitor SET lose=lose+1 WHERE id=".concat(compId, " AND name='").concat(team2, "'"));
+                    pool.query("UPDATE Competitor SET win=win+1, points=points+3 WHERE id=".concat(compId, " AND name='").concat(team1, "'"));
+                    pool.query("UPDATE Competitor SET lose=lose+1 WHERE id=".concat(compId, " AND name='").concat(team2, "'"));
                 }
                 else if (result == 2) {
-                    database_1.default.query("UPDATE Competitor SET draw=draw+1, points=points+1 WHERE id=".concat(compId, " AND name='").concat(team1, "'"));
-                    database_1.default.query("UPDATE Competitor SET draw=draw+1, points=points+1 WHERE id=".concat(compId, " AND name='").concat(team2, "'"));
+                    pool.query("UPDATE Competitor SET draw=draw+1, points=points+1 WHERE id=".concat(compId, " AND name='").concat(team1, "'"));
+                    pool.query("UPDATE Competitor SET draw=draw+1, points=points+1 WHERE id=".concat(compId, " AND name='").concat(team2, "'"));
                 }
                 else if (result == 3) {
-                    database_1.default.query("UPDATE Competitor SET lose=lose+1 WHERE id=".concat(compId, " AND name='").concat(team1, "'"));
-                    database_1.default.query("UPDATE Competitor SET win=win+1, points=points+3 WHERE id=".concat(compId, " AND name='").concat(team2, "'"));
+                    pool.query("UPDATE Competitor SET lose=lose+1 WHERE id=".concat(compId, " AND name='").concat(team1, "'"));
+                    pool.query("UPDATE Competitor SET win=win+1, points=points+3 WHERE id=".concat(compId, " AND name='").concat(team2, "'"));
                 }
             }
             else if (prevResult == 1) {
                 if (result == 0) {
-                    database_1.default.query("UPDATE Competitor SET win=win-1, points=points-3 WHERE id=".concat(compId, " AND name='").concat(team1, "'"));
-                    database_1.default.query("UPDATE Competitor SET lose=lose-1 WHERE id=".concat(compId, " AND name='").concat(team2, "'"));
+                    pool.query("UPDATE Competitor SET win=win-1, points=points-3 WHERE id=".concat(compId, " AND name='").concat(team1, "'"));
+                    pool.query("UPDATE Competitor SET lose=lose-1 WHERE id=".concat(compId, " AND name='").concat(team2, "'"));
                 }
                 else if (result == 2) {
-                    database_1.default.query("UPDATE Competitor SET draw=draw+1, win=win-1, points=points-2 WHERE id=".concat(compId, " AND name='").concat(team1, "'"));
-                    database_1.default.query("UPDATE Competitor SET draw=draw+1, lose=lose-1, points=points+1 WHERE id=".concat(compId, " AND name='").concat(team2, "'"));
+                    pool.query("UPDATE Competitor SET draw=draw+1, win=win-1, points=points-2 WHERE id=".concat(compId, " AND name='").concat(team1, "'"));
+                    pool.query("UPDATE Competitor SET draw=draw+1, lose=lose-1, points=points+1 WHERE id=".concat(compId, " AND name='").concat(team2, "'"));
                 }
                 else if (result == 3) {
-                    database_1.default.query("UPDATE Competitor SET lose=lose+1, win=win-1, points=points-3 WHERE id=".concat(compId, " AND name='").concat(team1, "'"));
-                    database_1.default.query("UPDATE Competitor SET win=win+1, lose=lose-1, points=points+3 WHERE id=".concat(compId, " AND name='").concat(team2, "'"));
+                    pool.query("UPDATE Competitor SET lose=lose+1, win=win-1, points=points-3 WHERE id=".concat(compId, " AND name='").concat(team1, "'"));
+                    pool.query("UPDATE Competitor SET win=win+1, lose=lose-1, points=points+3 WHERE id=".concat(compId, " AND name='").concat(team2, "'"));
                 }
             }
             else if (prevResult == 2) {
                 if (result == 0) {
-                    database_1.default.query("UPDATE Competitor SET draw=draw-1, points=points-1 WHERE id=".concat(compId, " AND name='").concat(team1, "'"));
-                    database_1.default.query("UPDATE Competitor SET draw=draw-1, points=points-1 WHERE id=".concat(compId, " AND name='").concat(team2, "'"));
+                    pool.query("UPDATE Competitor SET draw=draw-1, points=points-1 WHERE id=".concat(compId, " AND name='").concat(team1, "'"));
+                    pool.query("UPDATE Competitor SET draw=draw-1, points=points-1 WHERE id=".concat(compId, " AND name='").concat(team2, "'"));
                 }
                 else if (result == 1) {
-                    database_1.default.query("UPDATE Competitor SET draw=draw-1, win=win+1, points=points+2 WHERE id=".concat(compId, " AND name='").concat(team1, "'"));
-                    database_1.default.query("UPDATE Competitor SET draw=draw-1, lose=lose+1, points=points-1 WHERE id=".concat(compId, " AND name='").concat(team2, "'"));
+                    pool.query("UPDATE Competitor SET draw=draw-1, win=win+1, points=points+2 WHERE id=".concat(compId, " AND name='").concat(team1, "'"));
+                    pool.query("UPDATE Competitor SET draw=draw-1, lose=lose+1, points=points-1 WHERE id=".concat(compId, " AND name='").concat(team2, "'"));
                 }
                 else if (result == 3) {
-                    database_1.default.query("UPDATE Competitor SET draw=draw-1, lose=lose+1, points=points-1 WHERE id=".concat(compId, " AND name='").concat(team1, "'"));
-                    database_1.default.query("UPDATE Competitor SET draw=draw-1, win=win+1, points=points+2 WHERE win=win+1 id=".concat(compId, " AND name='").concat(team2, "'"));
+                    pool.query("UPDATE Competitor SET draw=draw-1, lose=lose+1, points=points-1 WHERE id=".concat(compId, " AND name='").concat(team1, "'"));
+                    pool.query("UPDATE Competitor SET draw=draw-1, win=win+1, points=points+2 WHERE win=win+1 id=".concat(compId, " AND name='").concat(team2, "'"));
                 }
             }
             else if (prevResult == 3) {
                 if (result == 0) {
-                    database_1.default.query("UPDATE Competitor SET lose=lose-1 WHERE id=".concat(compId, " AND name='").concat(team1, "'"));
-                    database_1.default.query("UPDATE Competitor SET win=win-1, points=points-3 WHERE id=".concat(compId, " AND name='").concat(team2, "'"));
+                    pool.query("UPDATE Competitor SET lose=lose-1 WHERE id=".concat(compId, " AND name='").concat(team1, "'"));
+                    pool.query("UPDATE Competitor SET win=win-1, points=points-3 WHERE id=".concat(compId, " AND name='").concat(team2, "'"));
                 }
                 else if (result == 1) {
-                    database_1.default.query("UPDATE Competitor SET lose=lose-1, win=win+1, points=points+3 WHERE id=".concat(compId, " AND name='").concat(team1, "'"));
-                    database_1.default.query("UPDATE Competitor SET win=win-1, lose=lose+1, points=points-3 WHERE id=".concat(compId, " AND name='").concat(team2, "'"));
+                    pool.query("UPDATE Competitor SET lose=lose-1, win=win+1, points=points+3 WHERE id=".concat(compId, " AND name='").concat(team1, "'"));
+                    pool.query("UPDATE Competitor SET win=win-1, lose=lose+1, points=points-3 WHERE id=".concat(compId, " AND name='").concat(team2, "'"));
                 }
                 else if (result == 2) {
-                    database_1.default.query("UPDATE Competitor SET lose=lose-1, draw=draw+1, points=points+1 WHERE id=".concat(compId, " AND name='").concat(team1, "'"));
-                    database_1.default.query("UPDATE Competitor SET win=win-1, draw=draw+1, points=points-2 WHERE id=".concat(compId, " AND name='").concat(team2, "'"));
+                    pool.query("UPDATE Competitor SET lose=lose-1, draw=draw+1, points=points+1 WHERE id=".concat(compId, " AND name='").concat(team1, "'"));
+                    pool.query("UPDATE Competitor SET win=win-1, draw=draw+1, points=points-2 WHERE id=".concat(compId, " AND name='").concat(team2, "'"));
                 }
             }
         }
         else if (compType == 2) {
             if (prevResult == 0) {
                 if (result == 1) {
-                    database_1.default.query("UPDATE Competitor SET win=win+1, points=points+2 WHERE id=".concat(compId, " AND name='").concat(team1, "'"));
-                    database_1.default.query("UPDATE Competitor SET lose=lose+1, points=points+1 WHERE id=".concat(compId, " AND name='").concat(team2, "'"));
+                    pool.query("UPDATE Competitor SET win=win+1, points=points+2 WHERE id=".concat(compId, " AND name='").concat(team1, "'"));
+                    pool.query("UPDATE Competitor SET lose=lose+1, points=points+1 WHERE id=".concat(compId, " AND name='").concat(team2, "'"));
                 }
                 else if (result == 3) {
-                    database_1.default.query("UPDATE Competitor SET lose=lose+1, points=points+1 WHERE id=".concat(compId, " AND name='").concat(team1, "'"));
-                    database_1.default.query("UPDATE Competitor SET win=win+1, points=points+2 WHERE id=".concat(compId, " AND name='").concat(team2, "'"));
+                    pool.query("UPDATE Competitor SET lose=lose+1, points=points+1 WHERE id=".concat(compId, " AND name='").concat(team1, "'"));
+                    pool.query("UPDATE Competitor SET win=win+1, points=points+2 WHERE id=".concat(compId, " AND name='").concat(team2, "'"));
                 }
             }
             else if (prevResult == 1) {
                 if (result == 0) {
-                    database_1.default.query("UPDATE Competitor SET win=win-1, points=points-2 WHERE id=".concat(compId, " AND name='").concat(team1, "'"));
-                    database_1.default.query("UPDATE Competitor SET lose=lose-1, points=points-1 WHERE id=".concat(compId, " AND name='").concat(team2, "'"));
+                    pool.query("UPDATE Competitor SET win=win-1, points=points-2 WHERE id=".concat(compId, " AND name='").concat(team1, "'"));
+                    pool.query("UPDATE Competitor SET lose=lose-1, points=points-1 WHERE id=".concat(compId, " AND name='").concat(team2, "'"));
                 }
                 else if (result == 3) {
-                    database_1.default.query("UPDATE Competitor SET lose=lose+1, win=win-1, points=points-1 WHERE id=".concat(compId, " AND name='").concat(team1, "'"));
-                    database_1.default.query("UPDATE Competitor SET win=win+1, lose=lose-1, points=points+1 WHERE id=".concat(compId, " AND name='").concat(team2, "'"));
+                    pool.query("UPDATE Competitor SET lose=lose+1, win=win-1, points=points-1 WHERE id=".concat(compId, " AND name='").concat(team1, "'"));
+                    pool.query("UPDATE Competitor SET win=win+1, lose=lose-1, points=points+1 WHERE id=".concat(compId, " AND name='").concat(team2, "'"));
                 }
             }
             else if (prevResult == 3) {
                 if (result == 0) {
-                    database_1.default.query("UPDATE Competitor SET lose=lose-1, points=points-1 WHERE id=".concat(compId, " AND name='").concat(team1, "'"));
-                    database_1.default.query("UPDATE Competitor SET win=win-1, points=points-2 WHERE id=".concat(compId, " AND name='").concat(team2, "'"));
+                    pool.query("UPDATE Competitor SET lose=lose-1, points=points-1 WHERE id=".concat(compId, " AND name='").concat(team1, "'"));
+                    pool.query("UPDATE Competitor SET win=win-1, points=points-2 WHERE id=".concat(compId, " AND name='").concat(team2, "'"));
                 }
                 else if (result == 1) {
-                    database_1.default.query("UPDATE Competitor SET lose=lose-1, win=win+1, points=points+1 WHERE id=".concat(compId, " AND name='").concat(team1, "'"));
-                    database_1.default.query("UPDATE Competitor SET win=win-1, lose=lose+1, points=points-1 WHERE id=".concat(compId, " AND name='").concat(team2, "'"));
+                    pool.query("UPDATE Competitor SET lose=lose-1, win=win+1, points=points+1 WHERE id=".concat(compId, " AND name='").concat(team1, "'"));
+                    pool.query("UPDATE Competitor SET win=win-1, lose=lose+1, points=points-1 WHERE id=".concat(compId, " AND name='").concat(team2, "'"));
                 }
             }
         }
-        database_1.default.query("UPDATE Matches SET result=".concat(result, " WHERE matchId=").concat(matchid), function (error, result, client) {
+        pool.query("UPDATE Matches SET result=".concat(result, " WHERE matchId=").concat(matchid), function (error, result, client) {
             res.redirect('back');
         });
     });
 });
-database_1.default.end;
+pool.end;

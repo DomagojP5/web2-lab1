@@ -4,31 +4,13 @@ import path from 'path'
 import https from 'https';
 import { auth, requiresAuth } from 'express-openid-connect'; 
 import dotenv from 'dotenv'
-
-import {fourPlayerMap, fivePlayerMap, sixPlayerMap, sevenPlayerMap, eightPlayerMap} from './roundRobin'
 import { Pool } from 'pg'
-dotenv.config()
-
-const pool = new Pool({
-  user: process.env.DB_USER,
-  host: process.env.DB_HOST,
-  database: 'web2_lab1db',
-  password: process.env.DB_PASSWORD,
-  port: 5432,
-  ssl : true
-  })
-
-pool.connect();
-
-
-const app = express();
-app.set("views", path.join(__dirname, "views"));
-app.set('view engine', 'pug');
-
-app.use(express.static('public'))
+import {fourPlayerMap, fivePlayerMap, sixPlayerMap, sevenPlayerMap, eightPlayerMap} from './roundRobin'
 
 const externalUrl = process.env.RENDER_EXTERNAL_URL;
 const port = externalUrl && process.env.PORT ? parseInt(process.env.PORT) : 3000;
+
+dotenv.config()
 
 const config = { 
   authRequired : false,
@@ -42,34 +24,30 @@ const config = {
   authorizationParams: {
     response_type: 'code' ,
     //scope: "openid profile email"   
-   },
+  },
 };
-// auth router attaches /login, /logout, and /callback routes to the baseURL
+
+const pool = new Pool({
+  user: process.env.DB_USER,
+  host: process.env.DB_HOST,
+  database: 'web2_lab1db',
+  password: process.env.DB_PASSWORD,
+  port: 5432,
+  ssl : true
+})
+
+pool.connect();
+  
+const app = express();
+app.set("views", path.join(__dirname, "views"));
+app.set('view engine', 'pug');
+app.use(express.static('public'))
 app.use(auth(config));
-
-app.get('/',  function (req, res) {
-  let username : string | undefined;
-  if (req.oidc.isAuthenticated()) {
-    username = req.oidc.user?.name ?? req.oidc.user?.sub;
-  }
-  res.render('index', {username});
-});
-
-
-app.get("/sign-up", (req, res) => {
-  res.oidc.login({
-    returnTo: '/',
-    authorizationParams: {      
-      screen_hint: "signup",
-    },
-  });
-});
-
+  
 if (externalUrl) {
   const hostname = '0.0.0.0'; //ne 127.0.0.1
   app.listen(port, hostname, () => {
-  console.log(`Server locally running at http://${hostname}:${port}/ and from
-  outside on ${externalUrl}`);
+    console.log(`Server locally running at http://${hostname}:${port}/ and from outside on ${externalUrl}`);
   });
 } else {
   https.createServer({
@@ -81,6 +59,22 @@ if (externalUrl) {
   });
 }
 
+app.get('/',  function (req, res) {
+  let username : string | undefined;
+  if (req.oidc.isAuthenticated()) {
+    username = req.oidc.user?.name ?? req.oidc.user?.sub;
+  }
+  res.render('index', {username});
+});
+
+app.get("/sign-up", (req, res) => {
+  res.oidc.login({
+    returnTo: '/',
+    authorizationParams: {      
+      screen_hint: "signup",
+    },
+  });
+});
 
 app.get ("/competition", async (req, res) => {
   const user = JSON.stringify(req.oidc.user); 
@@ -88,28 +82,28 @@ app.get ("/competition", async (req, res) => {
   
   pool.query(`SELECT * FROM competition`, function (error, result, client){
     var comps = result.rows; 
-    //console.log(comps)
     pool.query(`SELECT * FROM competitor`, function (error, result, client){
       var teams = result.rows;
-      //console.log(result.rows)
-      //console.log("2: " + user)
-      //console.log("printing teams: " + teams)
       res.render('competition', {comps:comps, teams:teams, user, email});
     });
-    
   });
-
 });
 
 app.get ("/generateCompetition", (req, res) => {
   const user = JSON.stringify(req.oidc.user); 
-
-  res.render('generateCompetition', {user}); 
+  if (!req.oidc.isAuthenticated()) {
+    res.redirect("/")
+  } else {
+    res.render("generateCompetition")
+  }
 });
 
 app.all ("/editCompetition/id=:tagId", (req, res) => {
+
+  if (!req.oidc.isAuthenticated()) {
+    res.redirect("/")
+  } 
   const user = (req.oidc.user); 
-  //console.log(req.params.tagId)
   const id = req.params.tagId
 
   pool.query(`SELECT * FROM competition WHERE id=${id}`, function (error, result, client){
@@ -118,51 +112,35 @@ app.all ("/editCompetition/id=:tagId", (req, res) => {
       var teams = result.rows;
       pool.query(`SELECT * FROM matches WHERE id=${id}`, function(error, result, client) {
         var matches = result.rows;
-        //console.log(matches)
         res.render('editCompetition', {comp, teams, user, matches});
       })
-      
     });
-    
   });
-  
 });
 
 var bodyParser = require('body-parser')
-//json parser
-var jsonParser = bodyParser.json()
-//url parser
 var urlencodedParser = bodyParser.urlencoded({ extended: false })
 
 app.post('/generateCompetition', urlencodedParser,  (req, res) => {
-  //const {name, competitors, competitionType} = req.body  
-  //console.log(name, competitors, competitionType)
-  //console.log(req.body)
-  
-  //console.log(`INSERT INTO competition (name, email, compType) VALUES ('${req.body.name}', '${req.oidc.user?.email}', ${req.body.competitionType})`)
-  pool.query(`INSERT INTO competition (name, email, compType) VALUES ('${req.body.name}', '${req.oidc.user?.email}', ${req.body.competitionType})`)
+  pool.query(`
+    INSERT INTO competition (name, email, compType) 
+    VALUES ('${req.body.name}', '${req.oidc.user?.email}', ${req.body.competitionType})`)
   
   let teamDict = {};
   let i = 1;
-  //console.log(req.body.competitors)
-  //console.log(req.body.competitors.split(","))
   for(var competitor of req.body.competitors.split(",")) {
     if(req.body.competitionType == 1) {
-      //console.log(`INSERT INTO competitor (id, name, win, draw, lose, points) SELECT id, '${competitor}', 0, 0, 0, 0 FROM competition  WHERE name='${req.body.name}'`)
       pool.query(`
         INSERT INTO competitor (id, name, win, draw, lose, points)
         SELECT id, '${competitor}', 0, 0, 0, 0
         FROM competition 
         WHERE name='${req.body.name}'`)
-    } else if (req.body.competitionType == 2) {
-      //console.log(`INSERT INTO competitor (id, name, win, lose, points) SELECT id, '${competitor}', 0, 0, 0FROM competition WHERE name='${req.body.name}'`) 
-      
+    } else if (req.body.competitionType == 2) {      
       pool.query(`
         INSERT INTO competitor (id, name, win, lose, points)
         SELECT id, '${competitor}', 0, 0, 0
         FROM competition 
         WHERE name='${req.body.name}'`)
-           
     }
     teamDict[i] = competitor;
     i++;
@@ -176,16 +154,16 @@ app.post('/generateCompetition', urlencodedParser,  (req, res) => {
   }
   const length = Object.keys(teamDict).length;
   const matchMap = mapping[length]
-  //console.log("map size: " + matchMap.size)
-  //console.log(mapping[length]);
   matchMap.forEach((matches) => {
     for (let [matchId1, matchId2] of matches) {
-      //console.log(matchId1, matchId2)
       for (const [teamId1, teamName1] of Object.entries(teamDict)) {
         for (const [teamId2, teamName2] of Object.entries(teamDict)) {
           if((matchId1 != 'bye' && matchId2 != 'bye') && (teamId1 == matchId1 && teamId2 == matchId2)) {
-            //console.log(`INSERT INTO Matches (id, team1, team2, result) SELECT id, '${teamName1}', '${teamName2}', 0  FROM competition  WHERE name='${req.body.name}'`)
-            pool.query(`INSERT INTO Matches (id, team1, team2, result) SELECT id, '${teamName1}', '${teamName2}', 0  FROM competition  WHERE name='${req.body.name}'`)
+            pool.query(`
+              INSERT INTO Matches (id, team1, team2, result) 
+              SELECT id, '${teamName1}', '${teamName2}', 0  
+              FROM competition  
+              WHERE name='${req.body.name}'`)
         }
       }
     }
@@ -197,18 +175,11 @@ app.post('/generateCompetition', urlencodedParser,  (req, res) => {
 
 app.post('/updateMatches', urlencodedParser, (req, res) => {
   const [compId, matchid, team1, team2, result, compType] = req.body.result.split(";")
-  //console.log(compId, matchid, team1, team2, result)
   pool.query(`SELECT result FROM Matches WHERE matchId=${matchid}` , function(error, result1, client) {
     const prevResult = result1.rows[0].result
-    //console.log("prevMatchId, prevResult : " + matchid + ", " + prevResult + " => matchId, result : " + matchid + ", " + result)
-    //console.log("matchid: " + matchid + ", result: " + result)
-    //promijeniti u competitor tablici: win, draw, lose
-    
-    //console.log(`UPDATE Matches SET result=${result} WHERE matchId=${matchid}`)
     if(compType == 1) {
       if (prevResult == 0) {
         if(result == 1) {
-          //console.log(`UPDATE Competitor SET win=win+1 WHERE id=${compId} AND name='${team1}'`)
           pool.query(`UPDATE Competitor SET win=win+1, points=points+3 WHERE id=${compId} AND name='${team1}'`)
           pool.query(`UPDATE Competitor SET lose=lose+1 WHERE id=${compId} AND name='${team2}'`)
         } else if (result == 2) {
@@ -283,10 +254,5 @@ app.post('/updateMatches', urlencodedParser, (req, res) => {
       res.redirect('back');
     })
   })
-
-
-
 })
-
-
 pool.end;
