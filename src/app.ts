@@ -7,11 +7,12 @@ import dotenv from 'dotenv'
 
 import {fourPlayerMap, fivePlayerMap, sixPlayerMap, sevenPlayerMap, eightPlayerMap} from './roundRobin'
 import { Pool } from 'pg'
+dotenv.config()
 
 const pool = new Pool({
   user: process.env.DB_USER,
   host: process.env.DB_HOST,
-  database: 'web2_demo_db',
+  database: 'web2_lab1db',
   password: process.env.DB_PASSWORD,
   port: 5432,
   ssl : true
@@ -19,7 +20,6 @@ const pool = new Pool({
 
 pool.connect();
 
-dotenv.config()
 
 const app = express();
 app.set("views", path.join(__dirname, "views"));
