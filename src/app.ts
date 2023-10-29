@@ -6,7 +6,17 @@ import { auth, requiresAuth } from 'express-openid-connect';
 import dotenv from 'dotenv'
 
 import {fourPlayerMap, fivePlayerMap, sixPlayerMap, sevenPlayerMap, eightPlayerMap} from './roundRobin'
-import pool from './database';
+import { Pool } from 'pg'
+
+const pool = new Pool({
+  user: process.env.DB_USER,
+  host: process.env.DB_HOST,
+  database: 'web2_demo_db',
+  password: process.env.DB_PASSWORD,
+  port: 5432,
+  ssl : true
+  })
+
 pool.connect();
 
 dotenv.config()
