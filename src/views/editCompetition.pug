@@ -1,6 +1,8 @@
 html 
     head 
-        title OAuth2/OpenID login demo
+        title Edit competition
+        style 
+            include ../../public/style.css
     body
         h1 Edit Competition
         ul 
@@ -8,12 +10,43 @@ html
             li: a(href='/competition', title='Competition') Competition
 
         h2 Competition: #{comp[0].name} 
-        each [key, value] of map
-            h4 Round #{key}
-            each [team1, team2] of value 
-                if team1 == 'bye' || team2 == 'bye'
-                    div Round skipped
-                else 
-                    div Team #{team1} vs Team #{team2}
-        each team in teams 
-            h4 Team: #{team.name}
+        h2 #{comp[0].name}
+            table 
+                tr
+                    td Teams: 
+                    td Wins 
+                    if comp[0].comptype == 1 
+                        td Draws
+                    td Losess
+                    td Points
+                - teams.sort(function (a,b) {return (a.points < b.points) ? 1 :  ((a.points > b.points) ? -1 : 0) })
+                each team in teams
+                    if team.id === comp[0].id
+                        tr
+                            td #{team.name}
+                            td #{team.win}
+                            
+                            if comp[0].comptype === 1 
+                                td #{team.draw}
+                            td #{team.lose}
+                            if 3*team.win+team.draw
+                                td #{3*team.win+team.draw}
+                            else 
+                                td 0
+        each [num, rounds] of map
+            h4 Round #{num}
+            each [match1, match2] of rounds 
+                if match1 == 'bye' || match2 == 'bye'
+                    div Match skipped
+                each team1, id1 in teamDict
+                    each team2, id2 in teamDict 
+                            if match1 == id1 && match2 == id2
+                                div #{team1} vs #{team2}
+                                form(action="/updateMatches" method="POST")
+                                    input(type="radio" name="result" value=`Unknown` id="0")
+                                    input(type="radio" name="result" value=`${team1} wins` id="1") 
+                                    input(type="radio" name="result" value=`Draw` id="2") 
+                                    input(type="radio" name="result" value=`${team2} wins` id="3")
+                                    br
+                                    br
+                                    button(type="submit" onclick="") Spremi

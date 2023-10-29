@@ -6,7 +6,7 @@ function validate() {
     if (teams.length >= 4 && teams.length <= 8) {
         return true
     } else {
-        alert("There has to be between 4 and  8 competitors u js")
+        alert("There has to be between 4 and  8 competitors")
         return false
     }
 }

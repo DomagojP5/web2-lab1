@@ -43,10 +43,6 @@ app.get('/',  function (req, res) {
   res.render('index', {username});
 });
 
-app.get('/private', requiresAuth(), function (req, res) {       
-    const user = JSON.stringify(req.oidc.user);      
-    res.render('private', {user}); 
-});
 
 app.get("/sign-up", (req, res) => {
   res.oidc.login({
@@ -103,6 +99,7 @@ app.post ("/editCompetition/id=:tagId", (req, res) => {
       var teams = result.rows;
       const length = Object.keys(teams).length;
       //console.log("teams: " + length)
+
       const mapping = {
         4:fourPlayerMap,
         5:fivePlayerMap,
@@ -110,8 +107,15 @@ app.post ("/editCompetition/id=:tagId", (req, res) => {
         7:sevenPlayerMap,
         8:eightPlayerMap
       }
+
+      let teamDict = {};
+      for(let i = 0; i < teams.length; i++) {
+        teamDict[i+1] = teams[i].name
+      }
       const map = mapping[length]
-      res.render('editCompetition', {comp:comp, teams:teams, user, map:map});
+      //console.log(comp)
+      //console.log(teams)
+      res.render('editCompetition', {comp, teams, user, map, teamDict});
     });
     
   });
@@ -129,30 +133,65 @@ var urlencodedParser = bodyParser.urlencoded({ extended: false })
 app.post('/generateCompetition', urlencodedParser,  (req, res) => {
   //const {name, competitors, competitionType} = req.body  
   //console.log(name, competitors, competitionType)
-  console.log(req.body)
+  //console.log(req.body)
   
-  //console.log(`INSERT INTO competition (name, email, compType) VALUES ('${req.body.name}', '${req.oidc.user?.email}', ${req.body.competitionType})`)
+  console.log(`INSERT INTO competition (name, email, compType) VALUES ('${req.body.name}', '${req.oidc.user?.email}', ${req.body.competitionType})`)
   pool.query(`INSERT INTO competition (name, email, compType) VALUES ('${req.body.name}', '${req.oidc.user?.email}', ${req.body.competitionType})`)
   
+  let teamDict = {};
+  let i = 1;
   for(var competitor of req.body.competitors.split(",")) {
     if(req.body.competitionType == 1) {
-      //console.log(`INSERT INTO competitor (id, name, win, draw, lose) VALUES (SELECT id FROM competition WHERE name='${req.body.name}', '${competitor}', 0, 0, 0)`)
+      console.log(`INSERT INTO competitor (id, name, win, draw, lose, points) SELECT id, '${competitor}', 0, 0, 0, 0 FROM competition  WHERE name='${req.body.name}'`)
       pool.query(`
         INSERT INTO competitor (id, name, win, draw, lose, points)
         SELECT id, '${competitor}', 0, 0, 0, 0
         FROM competition 
         WHERE name='${req.body.name}'`)
     } else if (req.body.competitionType == 2) {
-      //console.log(`INSERT INTO competitor (id, name, win, lose) VALUES (SELECT id FROM competition WHERE name='${req.body.name}', '${competitor}', 0, 0)`)  
+      console.log(`INSERT INTO competitor (id, name, win, lose, points) SELECT id, '${competitor}', 0, 0, 0FROM competition WHERE name='${req.body.name}'`) 
+      
       pool.query(`
         INSERT INTO competitor (id, name, win, lose, points)
         SELECT id, '${competitor}', 0, 0, 0
         FROM competition 
-        WHERE name='${req.body.name}'`)    
+        WHERE name='${req.body.name}'`)
+           
     }
-    //console.log(competitor)
+    teamDict[i] = competitor;
+    i++;
   }
+  const mapping = {
+    4:fourPlayerMap,
+    5:fivePlayerMap,
+    6:sixPlayerMap,
+    7:sevenPlayerMap,
+    8:eightPlayerMap
+  }
+  const length = Object.keys(teamDict).length;
+  const matchMap = mapping[length]
+  //console.log("map size: " + matchMap.size)
+  //console.log(mapping[length]);
+  matchMap.forEach((matches) => {
+    for (let [matchId1, matchId2] of matches) {
+      //console.log(matchId1, matchId2)
+      for (const [teamId1, teamName1] of Object.entries(teamDict)) {
+        for (const [teamId2, teamName2] of Object.entries(teamDict)) {
+          if((matchId1 != 'bye' && matchId2 != 'bye') && (teamId1 == matchId1 && teamId2 == matchId2)) {
+            console.log(`INSERT INTO Matches (id, team1, team2, result) SELECT id, '${teamName1}', '${teamName2}'  FROM competition  WHERE name='${req.body.name}', 0`)
+            pool.query(`INSERT INTO Matches (id, team1, team2, result) SELECT id, '${teamName1}', '${teamName2}'  FROM competition  WHERE name='${req.body.name}', 0`)
+        }
+      }
+    }
+  }});
   res.redirect('/competition')
 })
+
+app.post('/updateMatches', urlencodedParser, (req, res) => {
+  console.log(req.body)
+  console.log(req.body.result)
+  res.redirect('/competition')
+})
+
 
 pool.end;

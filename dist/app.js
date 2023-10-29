@@ -77,10 +77,6 @@ app.get('/', function (req, res) {
     }
     res.render('index', { username: username });
 });
-app.get('/private', (0, express_openid_connect_1.requiresAuth)(), function (req, res) {
-    var user = JSON.stringify(req.oidc.user);
-    res.render('private', { user: user });
-});
 app.get("/sign-up", function (req, res) {
     res.oidc.login({
         returnTo: '/',
@@ -137,8 +133,14 @@ app.post("/editCompetition/id=:tagId", function (req, res) {
                 7: roundRobin_1.sevenPlayerMap,
                 8: roundRobin_1.eightPlayerMap
             };
+            var teamDict = {};
+            for (var i = 0; i < teams.length; i++) {
+                teamDict[i + 1] = teams[i].name;
+            }
             var map = mapping[length];
-            res.render('editCompetition', { comp: comp, teams: teams, user: user, map: map });
+            //console.log(comp)
+            //console.log(teams)
+            res.render('editCompetition', { comp: comp, teams: teams, user: user, map: map, teamDict: teamDict });
         });
     });
 });
@@ -148,24 +150,59 @@ var jsonParser = bodyParser.json();
 //url parser
 var urlencodedParser = bodyParser.urlencoded({ extended: false });
 app.post('/generateCompetition', urlencodedParser, function (req, res) {
-    var _a;
     //const {name, competitors, competitionType} = req.body  
     //console.log(name, competitors, competitionType)
-    console.log(req.body);
-    //console.log(`INSERT INTO competition (name, email, compType) VALUES ('${req.body.name}', '${req.oidc.user?.email}', ${req.body.competitionType})`)
-    database_1.default.query("INSERT INTO competition (name, email, compType) VALUES ('".concat(req.body.name, "', '").concat((_a = req.oidc.user) === null || _a === void 0 ? void 0 : _a.email, "', ").concat(req.body.competitionType, ")"));
-    for (var _i = 0, _b = req.body.competitors.split(","); _i < _b.length; _i++) {
-        var competitor = _b[_i];
+    //console.log(req.body)
+    var _a, _b;
+    console.log("INSERT INTO competition (name, email, compType) VALUES ('".concat(req.body.name, "', '").concat((_a = req.oidc.user) === null || _a === void 0 ? void 0 : _a.email, "', ").concat(req.body.competitionType, ")"));
+    database_1.default.query("INSERT INTO competition (name, email, compType) VALUES ('".concat(req.body.name, "', '").concat((_b = req.oidc.user) === null || _b === void 0 ? void 0 : _b.email, "', ").concat(req.body.competitionType, ")"));
+    var teamDict = {};
+    var i = 1;
+    for (var _i = 0, _c = req.body.competitors.split(","); _i < _c.length; _i++) {
+        var competitor = _c[_i];
         if (req.body.competitionType == 1) {
-            //console.log(`INSERT INTO competitor (id, name, win, draw, lose) VALUES (SELECT id FROM competition WHERE name='${req.body.name}', '${competitor}', 0, 0, 0)`)
+            console.log("INSERT INTO competitor (id, name, win, draw, lose, points) SELECT id, '".concat(competitor, "', 0, 0, 0, 0 FROM competition  WHERE name='").concat(req.body.name, "'"));
             database_1.default.query("\n        INSERT INTO competitor (id, name, win, draw, lose, points)\n        SELECT id, '".concat(competitor, "', 0, 0, 0, 0\n        FROM competition \n        WHERE name='").concat(req.body.name, "'"));
         }
         else if (req.body.competitionType == 2) {
-            //console.log(`INSERT INTO competitor (id, name, win, lose) VALUES (SELECT id FROM competition WHERE name='${req.body.name}', '${competitor}', 0, 0)`)  
+            console.log("INSERT INTO competitor (id, name, win, lose, points) SELECT id, '".concat(competitor, "', 0, 0, 0FROM competition WHERE name='").concat(req.body.name, "'"));
             database_1.default.query("\n        INSERT INTO competitor (id, name, win, lose, points)\n        SELECT id, '".concat(competitor, "', 0, 0, 0\n        FROM competition \n        WHERE name='").concat(req.body.name, "'"));
         }
-        //console.log(competitor)
+        teamDict[i] = competitor;
+        i++;
     }
+    var mapping = {
+        4: roundRobin_1.fourPlayerMap,
+        5: roundRobin_1.fivePlayerMap,
+        6: roundRobin_1.sixPlayerMap,
+        7: roundRobin_1.sevenPlayerMap,
+        8: roundRobin_1.eightPlayerMap
+    };
+    var length = Object.keys(teamDict).length;
+    var matchMap = mapping[length];
+    //console.log("map size: " + matchMap.size)
+    //console.log(mapping[length]);
+    matchMap.forEach(function (matches) {
+        for (var _i = 0, matches_1 = matches; _i < matches_1.length; _i++) {
+            var _a = matches_1[_i], matchId1 = _a[0], matchId2 = _a[1];
+            //console.log(matchId1, matchId2)
+            for (var _b = 0, _c = Object.entries(teamDict); _b < _c.length; _b++) {
+                var _d = _c[_b], teamId1 = _d[0], teamName1 = _d[1];
+                for (var _e = 0, _f = Object.entries(teamDict); _e < _f.length; _e++) {
+                    var _g = _f[_e], teamId2 = _g[0], teamName2 = _g[1];
+                    if ((matchId1 != 'bye' && matchId2 != 'bye') && (teamId1 == matchId1 && teamId2 == matchId2)) {
+                        console.log("INSERT INTO Matches (id, team1, team2, result) SELECT id, '".concat(teamName1, "', '").concat(teamName2, "'  FROM competition  WHERE name='").concat(req.body.name, "', 0"));
+                        database_1.default.query("INSERT INTO Matches (id, team1, team2, result) SELECT id, '".concat(teamName1, "', '").concat(teamName2, "'  FROM competition  WHERE name='").concat(req.body.name, "', 0"));
+                    }
+                }
+            }
+        }
+    });
+    res.redirect('/competition');
+});
+app.post('/updateMatches', urlencodedParser, function (req, res) {
+    console.log(req.body);
+    console.log(req.body.result);
     res.redirect('/competition');
 });
 database_1.default.end;

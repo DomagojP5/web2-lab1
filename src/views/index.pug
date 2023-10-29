@@ -1,12 +1,11 @@
 html 
     head 
-        title OAuth2/OpenID login demo
+        title Web2-lab1 Auth
     body
         if username
             h1 Welcome #{username}
         ul 
             li: a(href='/', title='Home') Home
-            li: a(href='/private') Private content 
             li: a(href='/competition') Competition  
             li: a(href='/generateCompetition') Generate competition          
             if username
