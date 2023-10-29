@@ -17,13 +17,15 @@ app.set('view engine', 'pug');
 
 app.use(express.static('public'))
 
-const port = 3000;
+const externalUrl = process.env.RENDER_EXTERNAL_URL;
+const port = externalUrl && process.env.PORT ? parseInt(process.env.PORT) : 3000;
 
 const config = { 
   authRequired : false,
   idpLogout : true, //login not only from the app, but also from identity provider
   secret: process.env.SECRET,
-  baseURL: `https://localhost:${port}`,
+  //baseURL: `https://localhost:${port}`,
+  baseURL: externalUrl || `https://localhost:${port}`,
   clientID: process.env.CLIENT_ID,
   issuerBaseURL: process.env.ISSUER_BASE_URL,
   clientSecret: process.env.CLIENT_SECRET,
@@ -53,14 +55,21 @@ app.get("/sign-up", (req, res) => {
   });
 });
 
-
-https.createServer({
-  key: fs.readFileSync('server.key'),
-  cert: fs.readFileSync('server.cert')
-}, app)
-.listen(port, function () {
-  console.log(`Server running at https://localhost:${port}/`);
-});
+if (externalUrl) {
+  const hostname = '0.0.0.0'; //ne 127.0.0.1
+  app.listen(port, hostname, () => {
+  console.log(`Server locally running at http://${hostname}:${port}/ and from
+  outside on ${externalUrl}`);
+  });
+} else {
+  https.createServer({
+    key: fs.readFileSync('server.key'),
+    cert: fs.readFileSync('server.cert')
+  }, app)
+  .listen(port, function () {
+    console.log(`Server running at https://localhost:${port}/`);
+  });
+}
 
 
 app.get ("/competition", async (req, res) => {
