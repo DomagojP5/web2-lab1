@@ -32,6 +32,12 @@ html
                             td #{team.points}
         h3 Matches:
         - matches.sort(function (a,b) {return (a.matchid > b.matchid) ? 1 :  ((a.matchid < b.matchid) ? -1 : 0) })
+        if comp[0].comptype == 1
+            div Unplayed/win1/draw/win2
+            br
+        else 
+            div Unplayed/win1/win2
+            br
         each match of matches 
             div #{match.team1} vs #{match.team2}
             form(action="/updateMatches" method="POST")
