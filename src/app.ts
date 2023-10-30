@@ -30,15 +30,11 @@ const config = {
 const pool = new Pool({
   user: process.env.DB_USER,
   host: process.env.DB_HOST,
-  database: 'web2_lab1db',
+  database: process.env.DB_DATABASE,
   password: process.env.DB_PASSWORD,
   port: 5432,
   ssl : true
 })
-
-console.log("user: " + process.env.DB_USER)
-console.log("host: " + process.env.DB_HOST)
-console.log("password: " + process.env.DB_PASSWORD)
 
 pool.connect();
   
@@ -86,6 +82,9 @@ app.get ("/competition", async (req, res) => {
   
   pool.query(`SELECT * FROM competition`, function (error, result, client){
     var comps = result.rows; 
+    if(error) {
+      throw error
+    }
     pool.query(`SELECT * FROM competitor`, function (error, result, client){
       var teams = result.rows;
       res.render('competition', {comps:comps, teams:teams, user, email});
