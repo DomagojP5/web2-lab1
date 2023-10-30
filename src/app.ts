@@ -162,6 +162,7 @@ app.post('/generateCompetition', urlencodedParser,  (req, res) => {
     7:sevenPlayerMap,
     8:eightPlayerMap
   }
+  console.log(teamDict)
   if(Object.keys(teamDict)) {
     const length = Object.keys(teamDict).length;
     const matchMap = mapping[length]

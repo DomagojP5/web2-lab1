@@ -192,6 +192,7 @@ app.post('/generateCompetition', urlencodedParser, function (req, res) {
         7: roundRobin_1.sevenPlayerMap,
         8: roundRobin_1.eightPlayerMap
     };
+    console.log(teamDict);
     if (Object.keys(teamDict)) {
         var length_1 = Object.keys(teamDict).length;
         var matchMap = mapping[length_1];
