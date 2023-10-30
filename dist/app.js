@@ -67,7 +67,7 @@ var config = {
 var pool = new pg_1.Pool({
     user: process.env.DB_USER,
     host: process.env.DB_HOST,
-    database: 'web2_lab1db',
+    database: process.env.DB_DATABASE,
     password: process.env.DB_PASSWORD,
     port: 5432,
     ssl: true
@@ -116,10 +116,20 @@ app.get("/competition", function (req, res) { return __awaiter(void 0, void 0, v
         user = JSON.stringify(req.oidc.user);
         email = (_a = req.oidc.user) === null || _a === void 0 ? void 0 : _a.email;
         pool.query("SELECT * FROM competition", function (error, result, client) {
-            var comps = result.rows;
-            pool.query("SELECT * FROM competitor", function (error, result, client) {
-                var teams = result.rows;
-                res.render('competition', { comps: comps, teams: teams, user: user, email: email });
+            return __awaiter(this, void 0, void 0, function () {
+                var comps;
+                return __generator(this, function (_a) {
+                    if (result) {
+                        comps = result.rows;
+                    }
+                    pool.query("SELECT * FROM competitor", function (error, result, client) {
+                        if (result) {
+                            var teams = result.rows;
+                        }
+                        res.render('competition', { comps: comps, teams: teams, user: user, email: email });
+                    });
+                    return [2 /*return*/];
+                });
             });
         });
         return [2 /*return*/];
@@ -141,11 +151,17 @@ app.all("/editCompetition/id=:tagId", function (req, res) {
     var user = (req.oidc.user);
     var id = req.params.tagId;
     pool.query("SELECT * FROM competition WHERE id=".concat(id), function (error, result, client) {
-        var comp = result.rows;
+        if (result) {
+            var comp = result.rows;
+        }
         pool.query("SELECT * FROM competitor WHERE id=".concat(id), function (error, result, client) {
-            var teams = result.rows;
+            if (result) {
+                var teams = result.rows;
+            }
             pool.query("SELECT * FROM matches WHERE id=".concat(id), function (error, result, client) {
-                var matches = result.rows;
+                if (result) {
+                    var matches = result.rows;
+                }
                 res.render('editCompetition', { comp: comp, teams: teams, user: user, matches: matches });
             });
         });
@@ -176,22 +192,24 @@ app.post('/generateCompetition', urlencodedParser, function (req, res) {
         7: roundRobin_1.sevenPlayerMap,
         8: roundRobin_1.eightPlayerMap
     };
-    var length = Object.keys(teamDict).length;
-    var matchMap = mapping[length];
-    matchMap.forEach(function (matches) {
-        for (var _i = 0, matches_1 = matches; _i < matches_1.length; _i++) {
-            var _a = matches_1[_i], matchId1 = _a[0], matchId2 = _a[1];
-            for (var _b = 0, _c = Object.entries(teamDict); _b < _c.length; _b++) {
-                var _d = _c[_b], teamId1 = _d[0], teamName1 = _d[1];
-                for (var _e = 0, _f = Object.entries(teamDict); _e < _f.length; _e++) {
-                    var _g = _f[_e], teamId2 = _g[0], teamName2 = _g[1];
-                    if ((matchId1 != 'bye' && matchId2 != 'bye') && (teamId1 == matchId1 && teamId2 == matchId2)) {
-                        pool.query("\n              INSERT INTO Matches (id, team1, team2, result) \n              SELECT id, '".concat(teamName1, "', '").concat(teamName2, "', 0  \n              FROM competition  \n              WHERE name='").concat(req.body.name, "'"));
+    if (Object.keys(teamDict)) {
+        var length_1 = Object.keys(teamDict).length;
+        var matchMap = mapping[length_1];
+        matchMap.forEach(function (matches) {
+            for (var _i = 0, matches_1 = matches; _i < matches_1.length; _i++) {
+                var _a = matches_1[_i], matchId1 = _a[0], matchId2 = _a[1];
+                for (var _b = 0, _c = Object.entries(teamDict); _b < _c.length; _b++) {
+                    var _d = _c[_b], teamId1 = _d[0], teamName1 = _d[1];
+                    for (var _e = 0, _f = Object.entries(teamDict); _e < _f.length; _e++) {
+                        var _g = _f[_e], teamId2 = _g[0], teamName2 = _g[1];
+                        if ((matchId1 != 'bye' && matchId2 != 'bye') && (teamId1 == matchId1 && teamId2 == matchId2)) {
+                            pool.query("\n                INSERT INTO Matches (id, team1, team2, result) \n                SELECT id, '".concat(teamName1, "', '").concat(teamName2, "', 0  \n                FROM competition  \n                WHERE name='").concat(req.body.name, "'"));
+                        }
                     }
                 }
             }
-        }
-    });
+        });
+    }
     setTimeout(function () {
         res.redirect('/competition');
     }, 100);
