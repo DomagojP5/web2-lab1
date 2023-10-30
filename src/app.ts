@@ -111,11 +111,17 @@ app.all ("/editCompetition/id=:tagId", (req, res) => {
   const id = req.params.tagId
 
   pool.query(`SELECT * FROM competition WHERE id=${id}`, function (error, result, client){
-    var comp = result.rows;
+    if(result) {
+      var comp = result.rows;
+    }
     pool.query(`SELECT * FROM competitor WHERE id=${id}`, function (error, result, client){
-      var teams = result.rows;
+      if(result) {
+        var teams = result.rows;
+      }
       pool.query(`SELECT * FROM matches WHERE id=${id}`, function(error, result, client) {
-        var matches = result.rows;
+        if(result) {
+          var matches = result.rows;
+        }
         res.render('editCompetition', {comp, teams, user, matches});
       })
     });
@@ -156,7 +162,7 @@ app.post('/generateCompetition', urlencodedParser,  (req, res) => {
     7:sevenPlayerMap,
     8:eightPlayerMap
   }
-  if(Object.keys(teamDict).length) {
+  if(Object.keys(teamDict)) {
     const length = Object.keys(teamDict).length;
     const matchMap = mapping[length]
     matchMap.forEach((matches) => {
