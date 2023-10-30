@@ -40,24 +40,6 @@ eightPlayerMap.set(5, [[1, 6], [5, 7], [8, 4], [3, 2]])
 eightPlayerMap.set(6, [[1, 7], [6, 8], [5, 2], [3, 4]])
 eightPlayerMap.set(7, [[1, 8], [7, 2], [6, 3], [5, 4]])
 
-/*
-console.log("4 player round-robin:")
-fourPlayerMap.forEach((value, key) => {
-    console.log(`round${key}: `)
-    for (var match of value) {
-        console.log(`    ${match[0]} vs ${match[1]}`)
-    }
-})
-console.log("=====================")
-console.log("5 player round-robin:")
-fivePlayerMap.forEach((value, key) => {
-    console.log(`round${key}: `)
-    for (var match of value) {
-        console.log(`    ${match[0]} vs ${match[1]}`)
-    }
-})
-*/
-
 export {
     fourPlayerMap,
     fivePlayerMap,

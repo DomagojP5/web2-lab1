@@ -156,22 +156,24 @@ app.post('/generateCompetition', urlencodedParser,  (req, res) => {
     7:sevenPlayerMap,
     8:eightPlayerMap
   }
-  const length = Object.keys(teamDict).length;
-  const matchMap = mapping[length]
-  matchMap.forEach((matches) => {
-    for (let [matchId1, matchId2] of matches) {
-      for (const [teamId1, teamName1] of Object.entries(teamDict)) {
-        for (const [teamId2, teamName2] of Object.entries(teamDict)) {
-          if((matchId1 != 'bye' && matchId2 != 'bye') && (teamId1 == matchId1 && teamId2 == matchId2)) {
-            pool.query(`
-              INSERT INTO Matches (id, team1, team2, result) 
-              SELECT id, '${teamName1}', '${teamName2}', 0  
-              FROM competition  
-              WHERE name='${req.body.name}'`)
+  if(Object.keys(teamDict).length) {
+    const length = Object.keys(teamDict).length;
+    const matchMap = mapping[length]
+    matchMap.forEach((matches) => {
+      for (let [matchId1, matchId2] of matches) {
+        for (const [teamId1, teamName1] of Object.entries(teamDict)) {
+          for (const [teamId2, teamName2] of Object.entries(teamDict)) {
+            if((matchId1 != 'bye' && matchId2 != 'bye') && (teamId1 == matchId1 && teamId2 == matchId2)) {
+              pool.query(`
+                INSERT INTO Matches (id, team1, team2, result) 
+                SELECT id, '${teamName1}', '${teamName2}', 0  
+                FROM competition  
+                WHERE name='${req.body.name}'`)
+          }
         }
       }
-    }
-  }});
+    }});
+  }
   setTimeout(() => {
     res.redirect('/competition')
   }, 100)
