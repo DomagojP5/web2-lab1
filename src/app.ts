@@ -81,12 +81,13 @@ app.get ("/competition", async (req, res) => {
   const email = req.oidc.user?.email
   
   pool.query(`SELECT * FROM competition`, async function (error, result, client){
-    var {comps} = await result.rows; 
-    if(error) {
-      throw error
+    if(result) {
+      var comps = result.rows; 
     }
     pool.query(`SELECT * FROM competitor`, function (error, result, client){
-      var teams = result.rows;
+      if(result) {
+        var teams = result.rows;
+      }
       res.render('competition', {comps:comps, teams:teams, user, email});
     });
   });
