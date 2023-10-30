@@ -3,7 +3,10 @@
     "build": "npm run clean; tsc; npm run copy-views; npm run copy-views",
     "clean": "rm -rf dist",
     "copy-views": "cp -r src/views/ dist/views/",
-    "start": "node dist/app.js"
+    "start": "node dist/app.js",
+    "buildOld": "npm run cleanOld && tsc && npm run copy-viewsOld && npm run copy-viewsOld",
+  "cleanOld": "if exist dist rmdir /s /q dist",
+  "copy-viewsOld": "robocopy /mir /NFL /NDL /NJH /NJS /nc /ns /np src/views/ dist/views & exit 0"
   },
   "dependencies": {
     "body-parser": "^1.20.2",

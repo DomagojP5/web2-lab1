@@ -36,6 +36,10 @@ const pool = new Pool({
   ssl : true
 })
 
+console.log("user: " + process.env.DB_USER)
+console.log("host: " + process.env.DB_HOST)
+console.log("password: " + process.env.DB_PASSWORD)
+
 pool.connect();
   
 const app = express();
