@@ -5,10 +5,11 @@
     "copy-views": "cp -r src/views/ dist/views/",
     "start": "node dist/app.js",
     "buildOld": "npm run cleanOld && tsc && npm run copy-viewsOld && npm run copy-viewsOld",
-  "cleanOld": "if exist dist rmdir /s /q dist",
-  "copy-viewsOld": "robocopy /mir /NFL /NDL /NJH /NJS /nc /ns /np src/views/ dist/views & exit 0"
+    "cleanOld": "if exist dist rmdir /s /q dist",
+    "copy-viewsOld": "robocopy /mir /NFL /NDL /NJH /NJS /nc /ns /np src/views/ dist/views & exit 0"
   },
   "dependencies": {
+    "@types/pg": "^8.10.7",
     "body-parser": "^1.20.2",
     "dotenv": "^10.0.0",
     "express": "^4.17.1",
