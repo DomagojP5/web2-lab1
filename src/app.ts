@@ -80,8 +80,8 @@ app.get ("/competition", async (req, res) => {
   const user = JSON.stringify(req.oidc.user); 
   const email = req.oidc.user?.email
   
-  pool.query(`SELECT * FROM competition`, function (error, result, client){
-    var comps = result.rows; 
+  pool.query(`SELECT * FROM competition`, async function (error, result, client){
+    var {comps} = await result.rows; 
     if(error) {
       throw error
     }
